@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset=utf-8>
+<title>Race Condition Example</title>
+
+<script>
+    var initialised = false;
+
+    function wait(sec) {
+        let start = Date.now(),
+            now = start;
+        while (now - start < sec * 1000) {
+            now = Date.now();
+        }
+    }
+
+    function sleep(sec) {
+        return new Promise(resolve => setTimeout(resolve, sec * 1000));
+    }
+    window.addEventListener("load", function() {
+        wait(10);
+        // await sleep(1);
+        var newElement = document.createElement("p");
+        newElement.textContent = "Hello First!";
+        document.body.appendChild(newElement);
+        initialised = true;
+    });
+</script>
