@@ -7,21 +7,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 options = ChromeOptions()
-options.add_argument('--start-maximized')
 options.add_experimental_option("excludeSwitches", ["enable-logging"])
 service = ChromeService(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service, options=options)
-driver.get('https://prod.danawa.com/list/?cate=112747')
-# driver.get('file:///D:/Coding/crawling/myhtml2.html')
-
-# WebDriverWait(driver, 10).until(EC.invisibility_of_element((By.CLASS_NAME, 'product_list_cover')))
-# driver.implicitly_wait(3)
-# prodlist = driver.find_element(By.CLASS_NAME, 'main_prodlist main_prodlist_list').get_attribute()
-
+driver.get('file:///D:/Coding/crawling/practice_explicit_wait.html')
+# Explicit wait
+WebDriverWait(driver, timeout=10).until(lambda driver: driver.execute_script("return completed"))
 print('Crawling start')
-element = driver.find_element(By.ID, 'danawa wrap')
-# element = driver.find_element(By.CSS_SELECTOR, " .main_prodlist main_prodlist_list")
-# element = driver.find_element(By.XPATH, '//div[@class="main_prodlist main_prodlist_list"]')
+element = driver.find_element(By.TAG_NAME, 'p')
 print(element.text)
 print('Crawling end')
 

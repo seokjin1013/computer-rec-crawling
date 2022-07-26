@@ -1,0 +1,8 @@
+<p>something</p>
+<script>
+    var completed = false;
+    var element = document.getElementsByTagName("p");
+    setTimeout(() => (element[0].textContent = "Hello First!"), 1000);
+    setTimeout(() => (element[0].textContent = "Hello Second!", completed = true), 2000);
+    setTimeout(() => (element[0].textContent = "Hello Third!"), 3000);
+</script>
