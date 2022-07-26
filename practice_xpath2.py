@@ -13,9 +13,8 @@ driver = webdriver.Chrome(service=service, options=options)
 driver.get('file:///D:/Coding/crawling/practice_xpath2.html')
 
 print('Crawling start')
-element = driver.find_elements(By.XPATH, 'html/body/div[1]')
-for e in element:
-    print(e.text)
+element = driver.find_element(By.XPATH, 'html/body/div[3]/*[1]')
+print(element.text)
 print('Crawling end')
 
 driver.quit()

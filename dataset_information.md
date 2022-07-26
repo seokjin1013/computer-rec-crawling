@@ -1,8 +1,8 @@
 # 크롤링 데이터셋
 
-json형식을 따른다.
+pandas dataframe으로 저장한다.
 
-### id (고유키) - int
+### id (고유키) - str
 
 다나와 웹사이트 제품 id의 숫자 부분
 
@@ -12,13 +12,13 @@ json형식을 따른다.
 
 여기서 15594638를 크롤링 데이터셋의 고유키로 사용한다.
 
-### id_validator - int
+### id_validator - bool
 
-id가 유효한 지를 나타낸다. 0이면 정상, 0이 아니면 비정상
+id가 유효한 지를 나타낸다. True이면 정상, False이 아니면 비정상
 
 다나와 제품 id가 productItem으로 시작하지 않거나 숫자로 끝나지 않거나 등등의 경우이다.
 
-id_validator의 값이 0이 아닐 경우 숫자만 파싱하지 않고 그대로 고유키로 넣는다.
+id_validator의 값이 True가 아닐 경우 숫자만 파싱하지 않고 그대로 고유키로 넣는다.
 
 ### price - dictionary
 

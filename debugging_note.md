@@ -1,5 +1,9 @@
 # 디버깅 기록 노트
 
+### 원소가 숨겨지면 텍스트를 크롤링할 수 없음
+
+html의 inline CSS로 display: none 속성이 들어가면 웹페이지 상에 보이지 않게 되는데 DOM에는 존재하지만 크롤링도 못한다.
+
 ### xpath 인덱싱
 
 practice_xpath.py, .html을 참고하자.
