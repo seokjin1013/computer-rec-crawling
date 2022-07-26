@@ -10,7 +10,7 @@ options = ChromeOptions()
 options.add_experimental_option("excludeSwitches", ["enable-logging"])
 service = ChromeService(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service, options=options)
-driver.get('file:///D:/Coding/crawling/practice_classname_search.html')
+driver.get('https://prod.danawa.com/info/?pcode=16756757')
 
 print('Crawling start')
 element = driver.find_element(By.ID, 'space space')

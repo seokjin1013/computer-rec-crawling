@@ -12,11 +12,11 @@ class DanawaCrawler:
     QUENTITY_PER_PAGE = '90' # 30 or 60 or 90
     PAGE_NUM = 10
     CATEGORY = {
-        'CPU'	:'http://prod.danawa.com/list/?cate=112747',
-        'RAM'	:'http://prod.danawa.com/list/?cate=112752',
-        'VGA'	:'http://prod.danawa.com/list/?cate=112753',
+        # 'CPU'	:'http://prod.danawa.com/list/?cate=112747',
+        # 'RAM'	:'http://prod.danawa.com/list/?cate=112752',
+        # 'VGA'	:'http://prod.danawa.com/list/?cate=112753',
         # 'MBoard'	:'http://prod.danawa.com/list/?cate=112751',
-        # 'SSD'	:'http://prod.danawa.com/list/?cate=112760',
+        'SSD'	:'http://prod.danawa.com/list/?cate=112760',
         # 'HDD'	:'http://prod.danawa.com/list/?cate=112763',
         # 'Power'	:'http://prod.danawa.com/list/?cate=112777',
         # 'Cooler'	:'http://prod.danawa.com/list/?cate=11236855',
