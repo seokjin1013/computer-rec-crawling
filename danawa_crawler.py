@@ -1,4 +1,3 @@
-from math import ceil
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options as ChromeOptions
@@ -13,7 +12,7 @@ import re
 class DanawaCrawler:
     QUENTITY_PER_PAGE = 90 # 30 or 60 or 90
     PAGE_NUM = 10
-    CATEGORY = {
+    CATEGORY_URL = {
         # 'CPU'	:'http://prod.danawa.com/list/?cate=112747',
         # 'RAM'	:'http://prod.danawa.com/list/?cate=112752',
         # 'VGA'	:'http://prod.danawa.com/list/?cate=112753',
@@ -32,6 +31,7 @@ class DanawaCrawler:
         # 'Mouse'	:'http://prod.danawa.com/list/?cate=112787',
         # 'Laptop'	:'http://prod.danawa.com/list/?cate=112758',
     }
+    DETAIL_PAGE_URL = 'https://prod.danawa.com/info/?pcode='
 
 
     def __init__(self):
@@ -52,7 +52,12 @@ class DanawaCrawler:
 
 
     def crawling(self):
-        for category_title, category_link in self.CATEGORY.items():
+        # self.crawling_primary_key()
+        self.crawling_details()
+
+
+    def crawling_primary_key(self):
+        for category_title, category_link in self.CATEGORY_URL.items():
             df = pd.DataFrame(columns=['id', 'id_validator'])
             df.set_index('id', inplace=True)
 
@@ -83,7 +88,49 @@ class DanawaCrawler:
                     if id_validator:
                         id = id[len('productInfoDetail_'):]
                     df.loc[id] = [id_validator]
-            df.to_csv(f'{category_title}.csv')
+                break
+            df.columns = pd.MultiIndex.from_product([['basic'], df.columns])
+            df.to_pickle(f'{category_title}.pkl')
+
+
+    def crawling_details(self):
+        for category_title in self.CATEGORY_URL.keys():
+            df = pd.read_pickle(f'{category_title}.pkl')
+            for idx in df.loc[df[('basic', 'id_validator')] == True].index:
+                self.driver.get(self.DETAIL_PAGE_URL + idx)
+                self.wait()
+
+                # price crawling
+                price = self.driver.find_element(By.XPATH, '//*[@id="intMinFee"]').get_property('value')
+                price = int(price.replace(',', ''))
+                df.loc[idx, ('basic', 'price')] = price
+
+                # spec crawling
+                spec_area = self.driver.find_elements(By.XPATH, '//*[@class="spec_tbl"]/tbody/*/*')
+                division = ''
+                key = None
+                value = None
+                for element in spec_area:
+                    if element.get_attribute('class') == 'tit':
+                        key = element.text
+                    elif element.get_attribute('class') == 'dsc':
+                        value = element.text
+                    else:
+                        division = element.text
+                    if key != None and value != None:
+                        if key != '':
+                            complete_key = division + key
+                            df.loc[idx, ('spec', complete_key)] = value
+                            print(complete_key, value)
+                        key = None
+                        value = None
+
+                # review crawling
+                
+                break
+            
+            df.to_pickle(f'{category_title}2.pkl')
+
 
 DanawaCrawler().crawling()
 
