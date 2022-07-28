@@ -1,3 +1,4 @@
+from time import sleep
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options as ChromeOptions
@@ -7,31 +8,32 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support.select import Select
 import pandas as pd
+import numpy as np
 import re
 
 class DanawaCrawler:
     QUENTITY_PER_PAGE = 90 # 30 or 60 or 90
-    PAGE_NUM = 10
     CATEGORY_URL = {
-        # 'CPU'	:'http://prod.danawa.com/list/?cate=112747',
-        # 'RAM'	:'http://prod.danawa.com/list/?cate=112752',
-        # 'VGA'	:'http://prod.danawa.com/list/?cate=112753',
-        # 'MBoard'	:'http://prod.danawa.com/list/?cate=112751',
+        'CPU'	:'http://prod.danawa.com/list/?cate=112747',
+        'RAM'	:'http://prod.danawa.com/list/?cate=112752',
+        'VGA'	:'http://prod.danawa.com/list/?cate=112753',
+        'MBoard'	:'http://prod.danawa.com/list/?cate=112751',
         'SSD'	:'http://prod.danawa.com/list/?cate=112760',
-        # 'HDD'	:'http://prod.danawa.com/list/?cate=112763',
-        # 'Power'	:'http://prod.danawa.com/list/?cate=112777',
-        # 'Cooler'	:'http://prod.danawa.com/list/?cate=11236855',
-        # 'Case'	:'http://prod.danawa.com/list/?cate=112775',
-        # 'Monitor'	:'http://prod.danawa.com/list/?cate=112757',
-        # 'Speaker'	:'http://prod.danawa.com/list/?cate=112808',
-        # 'Headphone'	:'http://prod.danawa.com/list/?cate=113837',
-        # 'Earphone'	:'http://prod.danawa.com/list/?cate=113838',
-        # 'Headset'	:'http://prod.danawa.com/list/?cate=11225097',
-        # 'Keyboard'	:'http://prod.danawa.com/list/?cate=112782',
-        # 'Mouse'	:'http://prod.danawa.com/list/?cate=112787',
-        # 'Laptop'	:'http://prod.danawa.com/list/?cate=112758',
+        'HDD'	:'http://prod.danawa.com/list/?cate=112763',
+        'Power'	:'http://prod.danawa.com/list/?cate=112777',
+        'Cooler'	:'http://prod.danawa.com/list/?cate=11236855',
+        'Case'	:'http://prod.danawa.com/list/?cate=112775',
+        'Monitor'	:'http://prod.danawa.com/list/?cate=112757',
+        'Speaker'	:'http://prod.danawa.com/list/?cate=112808',
+        'Headphone'	:'http://prod.danawa.com/list/?cate=113837',
+        'Earphone'	:'http://prod.danawa.com/list/?cate=113838',
+        'Headset'	:'http://prod.danawa.com/list/?cate=11225097',
+        'Keyboard'	:'http://prod.danawa.com/list/?cate=112782',
+        'Mouse'	:'http://prod.danawa.com/list/?cate=112787',
+        'Laptop'	:'http://prod.danawa.com/list/?cate=112758',
     }
     DETAIL_PAGE_URL = 'https://prod.danawa.com/info/?pcode='
+    SAVE_DIR = './danawa_crawling_data.h5'
 
 
     def __init__(self):
@@ -52,8 +54,9 @@ class DanawaCrawler:
 
 
     def crawling(self):
-        # self.crawling_primary_key()
-        self.crawling_details()
+        self.crawling_primary_key()
+        self.crawling_detail()
+        self.crawling_review()
 
 
     def crawling_primary_key(self):
@@ -78,7 +81,7 @@ class DanawaCrawler:
                 if page_num > 0 and page_num % 10 == 0:
                     product_list_area.find_element(By.XPATH, f'.//*[@class="edge_nav nav_next"]').click()
                     self.wait()
-                product_list_area.find_element(By.XPATH, f'.//*[@class="number_wrap"]/*[{page_num % self.PAGE_NUM + 1}]').click()
+                product_list_area.find_element(By.XPATH, f'.//*[@class="number_wrap"]/*[{page_num % 10 + 1}]').click()
                 self.wait()
                 
                 products = product_list_area.find_elements(By.XPATH, './/*[@class="main_prodlist main_prodlist_list"]//*[@class="prod_pricelist "]/*[1]/*')
@@ -88,22 +91,23 @@ class DanawaCrawler:
                     if id_validator:
                         id = id[len('productInfoDetail_'):]
                     df.loc[id] = [id_validator]
-                break
-            df.columns = pd.MultiIndex.from_product([['basic'], df.columns])
-            df.to_pickle(f'{category_title}.pkl')
+
+            df.to_hdf(self.SAVE_DIR, f'{category_title}')
 
 
-    def crawling_details(self):
+    def crawling_detail(self):
         for category_title in self.CATEGORY_URL.keys():
-            df = pd.read_pickle(f'{category_title}.pkl')
-            for idx in df.loc[df[('basic', 'id_validator')] == True].index:
+            indices = pd.read_hdf(self.SAVE_DIR, f'{category_title}')
+            indices = indices.loc[indices['id_validator'] == True].index
+            df = pd.DataFrame(index=indices)
+            for idx in indices:
                 self.driver.get(self.DETAIL_PAGE_URL + idx)
                 self.wait()
 
                 # price crawling
-                price = self.driver.find_element(By.XPATH, '//*[@id="intMinFee"]').get_property('value')
-                price = int(price.replace(',', ''))
-                df.loc[idx, ('basic', 'price')] = price
+                price = self.driver.find_elements(By.XPATH, '//*[@id="intMinFee"]')
+                price = int(price[0].get_property('value').replace(',', '')) if price else np.NaN
+                df.loc[idx, 'price'] = price
 
                 # spec crawling
                 spec_area = self.driver.find_elements(By.XPATH, '//*[@class="spec_tbl"]/tbody/*/*')
@@ -120,16 +124,57 @@ class DanawaCrawler:
                     if key != None and value != None:
                         if key != '':
                             complete_key = division + key
-                            df.loc[idx, ('spec', complete_key)] = value
-                            print(complete_key, value)
+                            df.loc[idx, complete_key] = value
                         key = None
                         value = None
 
-                # review crawling
-                
-                break
-            
-            df.to_pickle(f'{category_title}2.pkl')
+            df.to_hdf(self.SAVE_DIR, f'{category_title}_detail')
+
+    def crawling_review(self):
+        for category_title in self.CATEGORY_URL.keys():
+            indices = pd.read_pickle(f'{category_title}.pkl')
+            indices = indices.loc[indices['id_validator'] == True].index
+            df = pd.DataFrame(columns=['id', 'sentence', 'time', 'good', 'bad'])
+            for idx in indices:
+                self.driver.get(self.DETAIL_PAGE_URL + idx)
+                self.wait()
+
+                filter_button_xpaths = []
+                filter_button_xpaths.append('.//*[@id="danawa-prodBlog-productOpinion-button-leftMenu-23"]')
+                filter_button_xpaths.append('.//*[@id="danawa-prodBlog-productOpinion-button-leftMenu-83"]')
+                for filter_button_xpath in filter_button_xpaths:
+                    review_area = self.driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
+                    review_area.find_element(By.XPATH, filter_button_xpath).click()
+                    WebDriverWait(self.driver, 10).until(EC.staleness_of(review_area))
+                    review_area = self.driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
+
+                    while True:
+                        page_count = len(review_area.find_elements(By.XPATH, './/*[@class="page_nav_area"]/*[2]/*'))
+                        if page_count == 0:
+                            break
+                        for page_num in range(page_count):
+                            if page_num > 0:
+                                review_area.find_element(By.XPATH, f'.//*[@class="page_nav_area"]/*[2]/*[{page_num + 1}]').click()
+                                WebDriverWait(self.driver, 10).until(EC.staleness_of(review_area))
+                                review_area = self.driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
+
+                            reviews = review_area.find_elements(By.XPATH, './/*[@class="cmt_list"]/*[@class="cmt_item"]')
+                            for review in reviews:
+                                sentence = review.find_element(By.XPATH, './/*[@class="danawa-prodBlog-productOpinion-clazz-content"]/input').get_attribute('value')
+                                time = review.find_element(By.XPATH, './/*[@class="date"]').text
+                                good = review.find_elements(By.XPATH, './/*[@class="btn_like"]/*[2]')
+                                good = good[0].text if good else np.NaN
+                                bad = review.find_elements(By.XPATH, './/*[@class="btn_dislike"]/*[2]')
+                                bad = bad[0].text if bad else np.NaN
+                                df.loc[len(df.index)] = [idx, sentence, time, good, bad]
+                        next_button = review_area.find_element(By.XPATH, './/*[@class="page_nav_area"]/*[3]')
+                        if next_button.get_attribute('class') == 'nav_edge nav_edge_next nav_edge_off':
+                            break
+                        next_button.click()
+                        WebDriverWait(self.driver, 10).until(EC.staleness_of(review_area))
+                        review_area = self.driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
+                        
+            df.to_hdf(self.SAVE_DIR, f'{category_title}_review')
 
 
 DanawaCrawler().crawling()

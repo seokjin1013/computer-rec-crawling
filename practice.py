@@ -15,9 +15,8 @@ driver.get('https://prod.danawa.com/info/?pcode=13190519')
 
 print('Crawling start')
 review_area = driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
-button = review_area.find_element(By.XPATH, '//*[@class="rdo_tab"]/*[2]/*[1]')
-button.send_keys(Keys.ENTER)
-print(button.tag_name, button.text)
+review_area.find_element(By.XPATH, '//*[@id="danawa-prodBlog-productOpinion-button-leftMenu-23"]').click()
+
 print('Crawling end')
 import time
 time.sleep(100)
