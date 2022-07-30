@@ -58,8 +58,8 @@ class DanawaCrawler:
     def crawling(self):
         print('Crawl primary keys')
         self.crawling_primary_key()
-        print('Crawl details')
-        self.crawling_detail()
+        # print('Crawl details')
+        # self.crawling_detail()
         print('Crawl reviews')
         self.crawling_review()
 
@@ -86,6 +86,7 @@ class DanawaCrawler:
                 if page_num > 0 and page_num % 10 == 0:
                     product_list_area.find_element(By.XPATH, f'.//*[@class="edge_nav nav_next"]').click()
                     self.wait()
+                WebDriverWait(self.driver, self.TIMEOUT_LIMIT).until(EC.visibility_of_element_located((By.XPATH, f'.//*[@class="number_wrap"]/*[{page_num % 10 + 1}]')))
                 product_list_area.find_element(By.XPATH, f'.//*[@class="number_wrap"]/*[{page_num % 10 + 1}]').click()
                 self.wait()
                 
@@ -184,6 +185,7 @@ class DanawaCrawler:
                             break
                         for page_num in range(page_count):
                             if page_num > 0:
+                                WebDriverWait(self.driver, self.TIMEOUT_LIMIT).until(EC.element_to_be_clickable((By.XPATH, f'.//*[@class="page_nav_area"]/*[2]/*[{page_num + 1}]')))
                                 review_area.find_element(By.XPATH, f'.//*[@class="page_nav_area"]/*[2]/*[{page_num + 1}]').click()
                                 WebDriverWait(self.driver, self.TIMEOUT_LIMIT).until(EC.staleness_of(review_area))
                                 review_area = self.driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
