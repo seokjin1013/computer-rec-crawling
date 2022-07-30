@@ -10,9 +10,11 @@ from selenium.webdriver.support.select import Select
 import pandas as pd
 import numpy as np
 import re
+from tqdm import tqdm
 
 class DanawaCrawler:
     QUENTITY_PER_PAGE = 90 # 30 or 60 or 90
+    TIMEOUT_LIMIT = 200
     CATEGORY_URL = {
         'CPU'	:'http://prod.danawa.com/list/?cate=112747',
         'RAM'	:'http://prod.danawa.com/list/?cate=112752',
@@ -50,12 +52,15 @@ class DanawaCrawler:
 
 
     def wait(self):
-        WebDriverWait(self.driver, 10).until(EC.invisibility_of_element((By.CLASS_NAME, 'product_list_cover')))
+        WebDriverWait(self.driver, self.TIMEOUT_LIMIT).until(EC.invisibility_of_element((By.CLASS_NAME, 'product_list_cover')))
 
 
     def crawling(self):
+        print('Crawl primary keys')
         self.crawling_primary_key()
+        print('Crawl details')
         self.crawling_detail()
+        print('Crawl reviews')
         self.crawling_review()
 
 
@@ -77,7 +82,7 @@ class DanawaCrawler:
             product_count = int(product_count.replace(',', ''))
             page_count = (product_count + self.QUENTITY_PER_PAGE - 1) // self.QUENTITY_PER_PAGE
 
-            for page_num in range(page_count):
+            for page_num in tqdm(range(page_count), category_title):
                 if page_num > 0 and page_num % 10 == 0:
                     product_list_area.find_element(By.XPATH, f'.//*[@class="edge_nav nav_next"]').click()
                     self.wait()
@@ -100,14 +105,37 @@ class DanawaCrawler:
             indices = pd.read_hdf(self.SAVE_DIR, f'{category_title}')
             indices = indices.loc[indices['id_validator'] == True].index
             df = pd.DataFrame(index=indices)
-            for idx in indices:
+            for idx in tqdm(indices, category_title):
                 self.driver.get(self.DETAIL_PAGE_URL + idx)
                 self.wait()
 
+                # name crawling
+                name = self.driver.find_element(By.XPATH, '//*[@class="top_summary"]/h3').text
+                df.loc[idx, 'name'] = name
+
+                # image crawling
+                image = self.driver.find_element(By.XPATH, '//*[@id="baseImage"]').get_attribute('src')
+                df.loc[idx, 'image'] = image
+
                 # price crawling
-                price = self.driver.find_elements(By.XPATH, '//*[@id="intMinFee"]')
-                price = int(price[0].get_property('value').replace(',', '')) if price else np.NaN
-                df.loc[idx, 'price'] = price
+                price_area = self.driver.find_elements(By.XPATH, '//*[@class="high_list"]/*[@class="lowest"]')
+                if price_area:
+                    price_area = price_area[0]
+                    price = price_area.find_element(By.XPATH, '*[@class="price"]/*[1]/*[@class="txt_prc"]/*[1]').text
+                    price = int(price.replace(',', ''))
+                    shop_link = price_area.find_element(By.XPATH, '*[@class="mall"]/*[1]/*[1]').get_attribute('href')
+                    shop_image = price_area.find_elements(By.XPATH, '*[@class="mall"]/*[1]/*[1]/*[1]')
+                    df.loc[idx, 'price'] = price
+                    df.loc[idx, 'shop_link'] = shop_link
+                    if shop_image:
+                        shop_image = shop_image[0]
+                        shop_name = shop_image.get_attribute('alt')
+                        shop_logo = shop_image.get_attribute('src')
+                        df.loc[idx, 'shop_name'] = shop_name
+                        df.loc[idx, 'shop_logo'] = shop_logo
+                    else:
+                        shop_name = price_area.find_element(By.XPATH, '*[@class="mall"]/*[1]/*[1]').get_attribute('title')
+                        df.loc[idx, 'shop_name'] = shop_name
 
                 # spec crawling
                 spec_area = self.driver.find_elements(By.XPATH, '//*[@class="spec_tbl"]/tbody/*/*')
@@ -130,12 +158,13 @@ class DanawaCrawler:
 
             df.to_hdf(self.SAVE_DIR, f'{category_title}_detail')
 
+
     def crawling_review(self):
         for category_title in self.CATEGORY_URL.keys():
-            indices = pd.read_pickle(f'{category_title}.pkl')
+            indices = pd.read_hdf(self.SAVE_DIR, f'{category_title}')
             indices = indices.loc[indices['id_validator'] == True].index
             df = pd.DataFrame(columns=['id', 'sentence', 'time', 'good', 'bad'])
-            for idx in indices:
+            for idx in tqdm(indices, category_title):
                 self.driver.get(self.DETAIL_PAGE_URL + idx)
                 self.wait()
 
@@ -143,9 +172,10 @@ class DanawaCrawler:
                 filter_button_xpaths.append('.//*[@id="danawa-prodBlog-productOpinion-button-leftMenu-23"]')
                 filter_button_xpaths.append('.//*[@id="danawa-prodBlog-productOpinion-button-leftMenu-83"]')
                 for filter_button_xpath in filter_button_xpaths:
+                    WebDriverWait(self.driver, self.TIMEOUT_LIMIT).until(EC.visibility_of_element_located((By.XPATH, '//*[@class="danawa_review"]')))
                     review_area = self.driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
                     review_area.find_element(By.XPATH, filter_button_xpath).click()
-                    WebDriverWait(self.driver, 10).until(EC.staleness_of(review_area))
+                    WebDriverWait(self.driver, self.TIMEOUT_LIMIT).until(EC.staleness_of(review_area))
                     review_area = self.driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
 
                     while True:
@@ -155,7 +185,7 @@ class DanawaCrawler:
                         for page_num in range(page_count):
                             if page_num > 0:
                                 review_area.find_element(By.XPATH, f'.//*[@class="page_nav_area"]/*[2]/*[{page_num + 1}]').click()
-                                WebDriverWait(self.driver, 10).until(EC.staleness_of(review_area))
+                                WebDriverWait(self.driver, self.TIMEOUT_LIMIT).until(EC.staleness_of(review_area))
                                 review_area = self.driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
 
                             reviews = review_area.find_elements(By.XPATH, './/*[@class="cmt_list"]/*[@class="cmt_item"]')
@@ -171,9 +201,9 @@ class DanawaCrawler:
                         if next_button.get_attribute('class') == 'nav_edge nav_edge_next nav_edge_off':
                             break
                         next_button.click()
-                        WebDriverWait(self.driver, 10).until(EC.staleness_of(review_area))
+                        WebDriverWait(self.driver, self.TIMEOUT_LIMIT).until(EC.staleness_of(review_area))
                         review_area = self.driver.find_element(By.XPATH, '//*[@class="danawa_review"]')
-                        
+                
             df.to_hdf(self.SAVE_DIR, f'{category_title}_review')
 
 
