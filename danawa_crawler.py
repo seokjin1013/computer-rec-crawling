@@ -45,6 +45,7 @@ class DanawaCrawler:
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
         service = ChromeService(ChromeDriverManager().install())
         self.driver = webdriver.Chrome(service=service, options=options)
+        webdriver.Chrome.create_web_element
 
 
     def __del__(self):
