@@ -1,0 +1,6 @@
+# conda create -n env-name --file requirements.txt -c default -c conda-forge
+selenium >= 4.3.0
+webdriver-manager
+pandas
+pytables
+ipykernel

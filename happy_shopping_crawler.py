@@ -93,7 +93,7 @@ class HappyShoppingCrawler:
                             df.loc[id] = [name, price]
 
                         if (page_num + 1) % self.SAVE_INTERVAL == 0 or (page_num + 1) == page_count:
-                            df.to_hdf(self.SAVE_DIR, f'{category_title}')
+                            df.to_hdf(self.SAVE_DIR, category_title)
                             progress = page_num + 1
 
                 except Exception as e:
