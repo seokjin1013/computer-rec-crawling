@@ -62,11 +62,8 @@ class HappyShoppingCrawler:
     
     def scroll_down(self):
         product_area = self.find_element_or_wait(self.driver, '//*[@class="sc-fznMAR gSVBBi"]')
-        while True:
-            child_count = len(product_area.find_elements(By.XPATH, '*'))
-            if product_area.find_element(By.XPATH, f'*[{child_count}]').get_attribute('class') == 'sc-fznWOq jImGKC item_wrap':
-                break
-            self.driver.execute_script('window.scrollTo(0, document.body.scrollHeight)')        
+        while product_area.find_element(By.XPATH, f'*[last()]').get_attribute('class') != 'sc-fznWOq jImGKC item_wrap':
+            self.driver.execute_script('window.scrollTo(0, document.body.scrollHeight)')
 
 
     def crawling(self):
@@ -78,8 +75,8 @@ class HappyShoppingCrawler:
             progress = 0
             while True:
                 df = pd.read_hdf(self.SAVE_DIR, category_title)
-                self.driver.get(category_link)
                 try:
+                    self.driver.get(category_link)
                     product_count = int(self.find_element_or_wait(self.driver, '//*[@class="sc-AxmLO gmtmqV"]//*[@class="num"]').text)
                     page_count = (product_count + self.QUENTITY_PER_PAGE - 1) // self.QUENTITY_PER_PAGE
                     
@@ -103,9 +100,8 @@ class HappyShoppingCrawler:
                     print(e)
                     print(f'Restart from {progress} page')
                 else:
-                    df.to_hdf(self.SAVE_DIR, f'{category_title}')
+                    df.to_hdf(self.SAVE_DIR, category_title)
                     break
-
 
 
 HappyShoppingCrawler().crawling()

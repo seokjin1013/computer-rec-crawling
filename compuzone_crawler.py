@@ -1,5 +1,7 @@
-from time import sleep
-from selenium import webdriver
+from typing import Union
+from selenium.webdriver.chrome.webdriver import WebDriver as ChromeDriver
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from webdriver_manager.chrome import ChromeDriverManager
@@ -28,6 +30,7 @@ class CompuzoneCrawler:
     }
     DETAIL_PAGE_URL = 'https://www.compuzone.co.kr/product/product_detail.htm?ProductNo='
     SAVE_DIR = './compuzone_crawling_data.h5'
+    SAVE_INTERVAL = 90
 
 
     def __init__(self):
@@ -35,20 +38,26 @@ class CompuzoneCrawler:
         options.add_argument('--start-maximized')
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
         service = ChromeService(ChromeDriverManager().install())
-        self.driver = webdriver.Chrome(service=service, options=options)
+        self.driver = ChromeDriver(service=service, options=options)
 
 
     def __del__(self):
         self.driver.quit()
 
+    
+    def find_element_or_wait(self, element : Union[WebDriver, WebElement], xpath):
+        WebDriverWait(element, self.TIMEOUT_LIMIT).until(EC.visibility_of_element_located((By.XPATH, xpath)))
+        return element.find_element(By.XPATH, xpath)
+
+
+    def find_element_or_none(self, element : Union[WebDriver, WebElement], xpath):
+        ret = element.find_elements(By.XPATH, xpath)
+        return ret[0] if ret else None
+
 
     def scroll_down(self):
-        WebDriverWait(self.driver, self.TIMEOUT_LIMIT).until(EC.visibility_of_element_located((By.XPATH, '//*[@id="product_list_ul"]')))
-        product_area = self.driver.find_element(By.XPATH, '//*[@id="product_list_ul"]')
-        while True:
-            isMaxPaging = product_area.find_elements(By.XPATH, '*[@id="IsMaxPageing"]')
-            if isMaxPaging:
-                break
+        product_area = self.find_element_or_wait(self.driver, '//*[@id="product_list_ul"]')
+        while not self.find_element_or_none(product_area, '*[@id="IsMaxPageing"]'):
             self.driver.execute_script('window.scrollTo(0, document.body.scrollHeight)')
 
 
@@ -56,19 +65,34 @@ class CompuzoneCrawler:
         for category_title, category_link in self.CATEGORY_URL.items():
             df = pd.DataFrame(columns=['id', 'name', 'price'])
             df.set_index('id', inplace=True)
+            df.to_hdf(self.SAVE_DIR, category_title)
 
-            self.driver.get(category_link)
+            progress = 0
+            while True:
+                df = pd.read_hdf(self.SAVE_DIR, category_title)
+                try:
+                    self.driver.get(category_link)
+                    self.scroll_down()
+                    products = self.driver.find_elements(By.XPATH, '//*[@id="product_list_ul"]/li')
+                    for prod_num in tqdm(range(progress, len(products)), category_title, initial=progress, total=len(products)):
+                        product = products[prod_num]
+                        id = product.find_element(By.XPATH, '*[@pno]').get_attribute('pno')
+                        name = product.find_element(By.XPATH, './/*[@class="prd_info_name prdTxt"]').text
+                        price = self.find_element_or_none(product, './/*[@class="right_bx"]/*[@class="prd_price"]')
+                        price = int(price.get_attribute('data-price').replace(',', '')) if price else np.NaN
+                        df.loc[id] = [name, price]
 
-            self.scroll_down()
-            products = self.driver.find_elements(By.XPATH, '//*[@id="product_list_ul"]/li')
-            for product in tqdm(products, category_title):
-                id = product.find_element(By.XPATH, '*[@pno]').get_attribute('pno')
-                name = product.find_element(By.XPATH, './/*[@class="prd_info_name prdTxt"]').text
-                price = product.find_elements(By.XPATH, './/*[@class="right_bx"]/*[@class="prd_price"]')
-                price = int(price[0].get_attribute('data-price').replace(',', '')) if price else np.NaN
-                df.loc[id] = [name, price]
+                        if (prod_num + 1) % self.SAVE_INTERVAL == 0 or (prod_num + 1) == len(products):
+                            df.to_hdf(self.SAVE_DIR, category_title)
+                            progress = prod_num + 1
 
-            df.to_hdf(self.SAVE_DIR, f'{category_title}')
+                except Exception as e:
+                    print(e)
+                    print(f'Restart from {progress} page')
+                else:
+                    df.to_hdf(self.SAVE_DIR, category_title)
+                    print("ASDF")
+                    break
 
 
 CompuzoneCrawler().crawling()
