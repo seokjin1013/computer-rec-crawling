@@ -9,6 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support.select import Select
+from selenium.common.exceptions import NoSuchWindowException
 import pandas as pd
 import numpy as np
 import re
@@ -47,6 +48,11 @@ class DanawaCrawler:
         assert self.QUENTITY_PER_PAGE in [30, 60, 90]
         options = ChromeOptions()
         options.add_argument('--start-maximized')
+        options.add_argument('--incognito')
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-setuid-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
         service = ChromeService(ChromeDriverManager().install())
         self.driver = ChromeDriver(service=service, options=options)
@@ -129,6 +135,10 @@ class DanawaCrawler:
                             df.to_hdf(self.SAVE_DIR, category_title)
                             progress = page_num + 1
 
+                except NoSuchWindowException:
+                    print('Window already closed')
+                    print(f'Current page is {progress}')
+                    exit(-1)
                 except Exception as e:
                     print(e)
                     print(f'Restart from {progress} page')
@@ -141,7 +151,8 @@ class DanawaCrawler:
         for category_title in self.CATEGORY_URL.keys():
             indices = pd.read_hdf(self.SAVE_DIR, category_title)
             indices = indices.loc[indices['id_validator'] == True].index
-            df = pd.DataFrame(index=indices)
+            df = pd.DataFrame(columns=['name', 'image', 'price', 'shop_link', 'shop_name', 'shop_logo'])
+            df['price'] = df['price'].astype(np.float64)
             df.to_hdf(self.SAVE_DIR, f'{category_title}_detail')
 
             progress = 0
@@ -153,31 +164,23 @@ class DanawaCrawler:
                         self.driver.get(self.DETAIL_PAGE_URL + idx)
                         self.wait()
 
-                        # name crawling
                         name = self.find_element_or_wait(self.driver, '//*[@class="top_summary"]/h3').text
-                        df.loc[idx, 'name'] = name
-
-                        # image crawling
                         image = self.find_element_or_wait(self.driver, '//*[@id="baseImage"]').get_attribute('src')
-                        df.loc[idx, 'image'] = image
-
-                        # price crawling
+                        price = np.NaN
+                        shop_link, shop_name, shop_logo = '', '', ''
                         price_area = self.find_element_or_none(self.driver, '//*[@class="high_list"]/*[@class="lowest"]')
                         if price_area:
                             price = price_area.find_element(By.XPATH, '*[@class="price"]/*[1]/*[@class="txt_prc"]/*[1]').text
-                            price = int(price.replace(',', ''))
+                            price = float(price.replace(',', ''))
                             shop_link = price_area.find_element(By.XPATH, '*[@class="mall"]/*[1]/*[1]').get_attribute('href')
-                            df.loc[idx, 'price'] = price
-                            df.loc[idx, 'shop_link'] = shop_link
                             shop_image = self.find_element_or_none(price_area, '*[@class="mall"]/*[1]/*[1]/*[1]')
                             if shop_image:
                                 shop_name = shop_image.get_attribute('alt')
                                 shop_logo = shop_image.get_attribute('src')
-                                df.loc[idx, 'shop_name'] = shop_name
-                                df.loc[idx, 'shop_logo'] = shop_logo
                             else:
                                 shop_name = price_area.find_element(By.XPATH, '*[@class="mall"]/*[1]/*[1]').get_attribute('title')
-                                df.loc[idx, 'shop_name'] = shop_name
+                        
+                        df.loc[idx] = [name, image, price, shop_link, shop_name, shop_logo] + [''] * (len(df.columns) - 6)
 
                         # spec crawling
                         spec_area = self.driver.find_elements(By.XPATH, '//*[@class="spec_tbl"]/tbody/*/*')
@@ -194,6 +197,8 @@ class DanawaCrawler:
                             if key != None and value != None:
                                 if key != '':
                                     complete_key = division + key
+                                    if complete_key not in df:
+                                        df[complete_key] = ''
                                     df.loc[idx, complete_key] = value
                                 key = None
                                 value = None
@@ -201,7 +206,11 @@ class DanawaCrawler:
                         if (i + 1) % self.SAVE_DETAIL_INTERVAL == 0 or (i + 1) == len(indices):
                             df.to_hdf(self.SAVE_DIR, f'{category_title}_detail')
                             progress = i + 1
-                    
+                            
+                except NoSuchWindowException:
+                    print('Window already closed')
+                    print(f'Current page is {progress}')
+                    exit(-1)
                 except Exception as e:
                     print(e)
                     print(f'Restart from {progress} page')
@@ -214,7 +223,7 @@ class DanawaCrawler:
         for category_title in self.CATEGORY_URL.keys():
             indices = pd.read_hdf(self.SAVE_DIR, f'{category_title}')
             indices = indices.loc[indices['id_validator'] == True].index
-            df = pd.DataFrame(columns=['id', 'sentence', 'time', 'good', 'bad'])
+            df = pd.DataFrame(columns=['id', 'comment', 'time', 'good', 'bad'])
             df.to_hdf(self.SAVE_DIR, f'{category_title}_review')
 
             progress = 0
@@ -227,15 +236,13 @@ class DanawaCrawler:
                         self.wait()
 
                         filter_button_xpaths = []
-                        filter_button_xpaths.append('.//*[@id="danawa-prodBlog-productOpinion-button-leftMenu-23"]')
-                        filter_button_xpaths.append('.//*[@id="danawa-prodBlog-productOpinion-button-leftMenu-83"]')
+                        filter_button_xpaths.append('//*[@id="danawa-prodBlog-productOpinion-button-leftMenu-23"]')
+                        filter_button_xpaths.append('//*[@id="danawa-prodBlog-productOpinion-button-leftMenu-83"]')
                         for filter_button_xpath in filter_button_xpaths:
                             self.click_wait_update(self.driver, '//*[@class="danawa_review"]', '//*[@class="danawa_review"]' + filter_button_xpath)
                             review_area = self.find_element_or_wait(self.driver, '//*[@class="danawa_review"]')
-
                             while True:
-                                page_count = self.find_element_or_wait(review_area, './/*[@class="page_nav_area"]')
-                                page_count = len(review_area.find_elements(By.XPATH, '*[2]/*'))
+                                page_count = len(review_area.find_elements(By.XPATH, './/*[@class="page_nav_area"]/*[2]/*'))
                                 if page_count == 0:
                                     break
                                 for page_num in range(page_count):
@@ -244,15 +251,16 @@ class DanawaCrawler:
                                         review_area = self.find_element_or_wait(self.driver, '//*[@class="danawa_review"]')
 
                                     reviews = self.find_element_or_wait(review_area, './/*[@class="cmt_list"]')
-                                    reviews = review_area.find_elements(By.XPATH, '*[@class="cmt_item"]')
+                                    reviews = reviews.find_elements(By.XPATH, '*[@class="cmt_item"]')
                                     for review in reviews:
-                                        sentence = review.find_element(By.XPATH, './/*[@class="danawa-prodBlog-productOpinion-clazz-content"]/input').get_attribute('value')
+                                        comment = review.find_element(By.XPATH, './/*[@class="danawa-prodBlog-productOpinion-clazz-content"]/input').get_attribute('value')
                                         time = review.find_element(By.XPATH, './/*[@class="date"]').text
-                                        good = review.find_elements(By.XPATH, './/*[@class="btn_like"]/*[2]')
-                                        good = good[0].text if good else np.NaN
-                                        bad = review.find_elements(By.XPATH, './/*[@class="btn_dislike"]/*[2]')
-                                        bad = bad[0].text if bad else np.NaN
-                                        df.loc[len(df.index)] = [idx, sentence, time, good, bad]
+                                        good = self.find_element_or_none(review, './/*[@class="btn_like"]/*[2]')
+                                        good = float(good.text if good.text else 0) if good else np.NaN
+                                        bad = self.find_element_or_none(review, './/*[@class="btn_dislike"]/*[2]')
+                                        bad = float(bad.text if bad.text else 0) if bad else np.NaN
+                                        df.loc[len(df.index)] = [idx, comment, time, good, bad]
+
                                 next_button = review_area.find_element(By.XPATH, './/*[@class="page_nav_area"]/*[3]')
                                 if next_button.get_attribute('class') == 'nav_edge nav_edge_next nav_edge_on':
                                     self.click_wait_update(self.driver, '//*[@class="danawa_review"]', '//*[@class="danawa_review"]//*[@class="page_nav_area"]/*[3]')
@@ -264,6 +272,10 @@ class DanawaCrawler:
                             df.to_hdf(self.SAVE_DIR, f'{category_title}_review')
                             progress = i + 1
 
+                except NoSuchWindowException:
+                    print('Window already closed')
+                    print(f'Current page is {progress}')
+                    exit(-1)
                 except Exception as e:
                     print(e)
                     print(f'Restart from {progress} page')

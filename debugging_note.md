@@ -1,5 +1,25 @@
 # 디버깅 기록 노트
 
+### Pandas DataFrame 저장 시 퍼포먼스 경고
+
+PerformanceWarning: 
+your performance may suffer as PyTables will pickle object types that it cannot
+map directly to c-types
+
+to_hdf를 호출했을 때 한 행의 type에 여러 타입이 섞여있으면 위와 같은 경고가 출력된다.
+
+int와 float가 함께 쓰이면 float로 형변환된다.
+
+string은 object형으로 저장된다. pd.StringDType으로 형변환할 수 있지만 hdf가 지원하지 않는 형식이다.
+
+np.NaN은 float이다.
+
+pd.NA는 int형으로, np.NaN과는 달리 dtype을 int형으로 유지하면서 결측치를 나타낼 수 있다. 다만 hdf가 지원하지 않는 형식으로 바뀐다.
+
+feather는 확장자가 .ft인데, 여러 타입이 섞여있어도 퍼포먼스 경고가 나오지 않고 pd.NA를 저장할 수 있다.
+
+feather가 퍼포먼스 면에서는 좋아보이지만 hdf의 계층적 저장 구조도 좋아서 hdf를 다음에도 사용할 것 같다.
+
 ### 원소가 숨겨지면 텍스트를 크롤링할 수 없음
 
 html의 inline CSS로 display: none 속성이 들어가면 웹페이지 상에 보이지 않게 되는데 DOM에는 존재하지만 크롤링도 못한다.

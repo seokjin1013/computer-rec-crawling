@@ -8,6 +8,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import NoSuchWindowException
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -41,6 +42,11 @@ class HappyShoppingCrawler:
         assert self.QUENTITY_PER_PAGE in [30, 60, 90]
         options = ChromeOptions()
         options.add_argument('--start-maximized')
+        options.add_argument('--incognito')
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-setuid-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
         service = ChromeService(ChromeDriverManager().install())
         self.driver = ChromeDriver(service=service, options=options)
@@ -96,6 +102,10 @@ class HappyShoppingCrawler:
                             df.to_hdf(self.SAVE_DIR, category_title)
                             progress = page_num + 1
 
+                except NoSuchWindowException:
+                    print('Window already closed')
+                    print(f'Current page is {progress}')
+                    exit(-1)
                 except Exception as e:
                     print(e)
                     print(f'Restart from {progress} page')
@@ -105,3 +115,4 @@ class HappyShoppingCrawler:
 
 
 HappyShoppingCrawler().crawling()
+
