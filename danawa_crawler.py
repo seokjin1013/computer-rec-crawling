@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 class DanawaCrawler:
     QUENTITY_PER_PAGE = 90 # 30 or 60 or 90
-    TIMEOUT_LIMIT = 200
+    TIMEOUT_LIMIT = 10
     CATEGORY_URL = {
         'CPU'	:'http://prod.danawa.com/list/?cate=112747',
         'RAM'	:'http://prod.danawa.com/list/?cate=112752',

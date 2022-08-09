@@ -6,6 +6,21 @@ PerformanceWarning:
 your performance may suffer as PyTables will pickle object types that it cannot
 map directly to c-types
 
+수정
+
+| type    | info                                                                                                                                                 |
+| :------ | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
+| bool    | Boolean (true/false) types. Supported precisions: 8 (default) bits.                                                                                  |
+| int     | Signed integer types. Supported precisions: 8, 16, 32 (default) and 64 bits.                                                                         |
+| uint    | Unsigned integer types. Supported precisions: 8, 16, 32 (default) and 64 bits.                                                                       |
+| float   | Floating point types. Supported precisions: 16, 32, 64 (default) bits and extended precision floating point (see note on floating point types).      |
+| complex | Complex number types. Supported precisions: 64 (32+32), 128 (64+64, default) bits and extended precision complex (see note on floating point types). |
+| string  | Raw string types. Supported precisions: 8-bit positive multiples.                                                                                    |
+| time    | Data/time types. Supported precisions: 32 and 64 (default) bits.                                                                                     |
+| enum    | Enumerated types. Precision depends on base type.                                                                                                    |
+
+위 목록은 PyTables에서 지원하는 자료형이다. Pandas에서는 PyTables를 이용하여 빠르게 c-style type과 매핑하고 hdf5로 저장할 수 있지만 위 자료형이 아닌 원소가 존재하면 PyTables를 활용할 수 없어 속도가 느려진다는 경고이다.
+
 to_hdf를 호출했을 때 한 행의 type에 여러 타입이 섞여있으면 위와 같은 경고가 출력된다.
 
 int와 float가 함께 쓰이면 float로 형변환된다.
